@@ -10,7 +10,8 @@
   "author": "2023字节跳动青训营-小白队",
   "license": "MIT",
   "dependencies": {
-    "commander": "^11.0.0"
+    "commander": "^11.0.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",

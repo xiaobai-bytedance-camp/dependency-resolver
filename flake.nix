@@ -9,7 +9,8 @@
     in {
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [ 
-          nodePackages.pnpm
+          nodejs_20
+          nodePackages_latest.typescript-language-server
         ];
       };
     });

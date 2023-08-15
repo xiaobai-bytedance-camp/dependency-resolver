@@ -4,11 +4,16 @@
   "description": "Resolve packages in package.json and draw a graph of them",
   "main": "index.js",
   "scripts": {
+    "build": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "2023字节跳动青训营-小白队",
   "license": "MIT",
   "dependencies": {
     "commander": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "typescript": "^5.1.6"
   }
 }

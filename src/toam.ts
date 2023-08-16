@@ -39,6 +39,18 @@ export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
   return matrix
 }
 
+async function hasDirectory(path: string): Promise<boolean>{
+  try{
+    const stats=await fs.stat(path)
+    return stats.isDirectory()
+  } catch (err) {
+    if((err as NodeJS.ErrnoException).code === "ENOENT"){
+      return false
+    }
+    throw err
+  }
+}
+
 /*
  * Collect packages recursively into @xxx, but don't 
  * resolve their dependencies. 
@@ -69,6 +81,12 @@ async function collectPackages(dir: string): Promise<Package[]>{
       const p=new Package(raw)
       all_packages.push(p)
     }
+
+    const inner_path=path.join(dir,name,"node_modules")
+    if(await hasDirectory(inner_path)){
+      const inner_packages=await collectPackages(inner_path)
+      all_packages=all_packages.concat(inner_packages)
+    }
   }
 
   return all_packages
@@ -91,12 +109,13 @@ class Package {
   }
   
   resolveDependencies(allPackages: Package[]){
-    Object.keys
+    console.log(`Resolving dependencies of ${this.name}`)
     for(const name of Object.keys(this.raw.dependencies ?? {})){
-      const verreq=this.raw.dependencies[name]
-      const p=new PackageRequirement(name,verreq)
+      const verreqs: string=this.raw.dependencies[name]
+      const reqs=new PackageRequirements(this.name,verreqs)
 
-      const dep=p.match(allPackages)
+      const matches=reqs.match(allPackages)
+      const dep=PackageRequirement.chooseLatest(matches)
       this.dependencies.push(dep)
     }
   }
@@ -106,14 +125,20 @@ class Package {
   }
 }
 
+interface Requirement{
+  match(pool: Package[]): Package[]
+}
+
 enum VersionRequirementType{
   Exact,
   Tilde, // 1.0.x
   Caret, // 1.x.x
   GreaterOrEqual,
+  LessThan,
   GitUrl,
+  Any,
 }
-class PackageRequirement {
+class PackageRequirement implements Requirement{
 
   name: string
   type: VersionRequirementType
@@ -133,56 +158,135 @@ class PackageRequirement {
     }else if(ver.startsWith("http")||ver.startsWith("git")){
       this.type=VersionRequirementType.GitUrl
       this.ver=ver
+    }else if(ver=="*"){
+      this.type=VersionRequirementType.Any
+      this.ver=""
     }else{
       this.type=VersionRequirementType.Exact
       this.ver=ver
     }
   }
 
-  match(pool: Package[]): Package{
+  parseVersions(vera: string, verb: string): Number[][] {
+    const aa=vera.split("-")[0]
+    let ab=aa.split(".").map(x => Number(x))
+    while(ab.length<3){ ab.push(0) }
+
+    const ba=verb.split("-")[0]
+    const bb=ba.split(".").map(x => Number(x))
+    while(bb.length<3){ bb.push(0) }
+
+    if(ab.length!=3||bb.length!=3){
+      console.error(`Cannot parse ${vera} and ${verb}; split(".") isn't 3 parts.`)
+      throw "CannotParse"
+    }
+
+    return [ab,bb]
+  }
+
+  match(pool: Package[]): Package[]{
     // pool: All packages from node_modules
     const name_matches=pool.filter(p => p.name==this.name)
     if(name_matches.length==0){
-      console.error(`${this.name} is not in pool`)
-      throw "NotInPool"
+      console.warn(`${this.name} is not in pool`)
+      return [pool[0]] // TODO: Why can this happen...
+      // throw "NotInPool"
     }
 
     const version_range_matched=name_matches.filter(p => {
-      const thisv=this.ver.split("-")[0].split(".").map(x => Number(x))
-      const pv=p.version.split("-")[0].split(".").map(x => Number(x))
-      if(thisv.length!=3||pv.length!=3){
-        console.error(`A son of bitch wrote ${p.name} whose version is ${p.version}`)
-        throw "SonOfBitchPackage"
-      }
-
+      let thisv,pv
+      
       switch(this.type){
         case VersionRequirementType.Exact:
           return p.version==this.ver
         case VersionRequirementType.Tilde: // 1.0.x
-          return thisv[0]==pv[0] && thisv[1]==pv[1] && pv[2]>=thisv[2]
+          [thisv,pv] = this.parseVersions(this.ver,p.version)
+          return thisv[0]==pv[0] && thisv[1]==pv[1] && compareVersion(p.version,this.ver)>0
         case VersionRequirementType.Caret: // 1.x.x
-          return thisv[0]==pv[0] && (
-            (pv[1] > thisv[1]) ||
-            (pv[1] == thisv[1] && pv[2] >= thisv[2])
-          )
+          [thisv,pv] = this.parseVersions(this.ver,p.version)
+          return thisv[0]==pv[0] && compareVersion(p.version,this.ver)>0
         case VersionRequirementType.GreaterOrEqual:
           return compareVersion(p.version,this.ver)>0
         case VersionRequirementType.GitUrl:
           return p.version==this.ver
+        case VersionRequirementType.Any:
+          return true
+        case VersionRequirementType.LessThan:
+          return compareVersion(p.version,this.ver)<0
       }
     })
 
-    // Here we need Newer<0, so add `-` before compareVersion()
-    version_range_matched.sort((a,b) => {
-      return -compareVersion(a.version,b.version)
-    })
-    const sorted=version_range_matched
+    return version_range_matched
+  }
 
-    if(sorted.length==0){
-      console.error(`Failed to resolve dependency request for ${this.name}, type ${this.type}, version ${this.ver}`)
-      throw "FailedToResolveDependency"
-    }
+  static chooseLatest(packages: Package[]): Package{
+    // Here we need Newer<0, so add `-` before compareVersion()
+    const sorted=packages.slice().sort((a,b) => -compareVersion(a.version,b.version))
+
     return sorted[0]
+  }
+}
+
+enum RequirementRelationship {
+  And,
+  Or
+}
+class PackageRequirements implements Requirement{
+  reqs: Requirement[] = []
+  relationship: RequirementRelationship
+
+  constructor(name: string,verreq: string){
+    if(verreq.includes(" || ")){
+      this.relationship=RequirementRelationship.Or
+      const reqs=verreq.split(" || ")
+      this.reqs=reqs.map(req => new PackageRequirements(name,req))
+    }else if(verreq.includes(">=") && verreq.includes("<")){
+      this.relationship=RequirementRelationship.And
+      const [a,b,c,d]=verreq.split(" ")
+
+      const reqa=[a,b].join(" ")
+      const reqb=[c,d].join(" ")
+
+      this.reqs.push(new PackageRequirements(name,reqa))
+      this.reqs.push(new PackageRequirements(name,reqb))
+    }else{
+      this.relationship=RequirementRelationship.Or
+      this.reqs=[new PackageRequirement(name,verreq)]
+    }
+  }
+
+  match(pool: Package[]): Package[] {
+    let result: Package[]=[]
+    
+    const candidates=this.reqs.map(req => req.match(pool))
+    switch(this.relationship){
+      case RequirementRelationship.And:
+        for(const p of candidates[0]){
+          let existEverywhere=true
+          for(const c of candidates.slice(1)){
+            if(!c.includes(p)){
+              existEverywhere=false
+              break
+            }
+          }
+
+          if(existEverywhere){
+            result.push(p)
+          }
+        }
+        return result
+      case RequirementRelationship.Or:
+        for(const c of candidates){
+          for(const p of c){
+            if(result.includes(p)){
+              continue
+            }
+
+            result.push(p)
+          }
+        }
+        return result
+    }
   }
 }
 
@@ -213,14 +317,13 @@ function compareVersion(a: string, b: string): number {
     }
   }
 
-  console.error(`A package has repeated instances`)
   return 0
 }
 
 if (import.meta.url === `file://${process.argv[1]}`){
   // Not being imported, but being run directly
   // Run tests
-  const graph=await buildGraph("..")
+  const graph=await buildGraph("/home/ken/Projects/element-web")
 
   console.log("Graph is",graph)
 }

@@ -1,5 +1,7 @@
-#!/usr/bin/env node
-const {program} = require('commander')
+#!/usr/bin/env -S node --loader ts-node/esm --experimental-specifier-resolution=node
+import { Command } from 'commander'
+
+const program = new Command()
 
 program
   .command('hello')

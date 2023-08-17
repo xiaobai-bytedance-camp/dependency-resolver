@@ -32,6 +32,9 @@ export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
 
   for(const p of allPackages){
     for(const d of p.dependencies){
+      if(d==undefined){
+        console.log(`d is undefined, p is`,p)
+      }
       matrix[p.id][d.id]=true
     }
   }
@@ -78,7 +81,7 @@ async function collectPackages(dir: string): Promise<Package[]>{
         path.join(dir,name,"package.json"),
         "utf8"
       )
-      const p=new Package(raw)
+      const p=new Package(raw,name)
       all_packages.push(p)
     }
 
@@ -99,23 +102,33 @@ class Package {
   dependencies: Package[]
   raw: any
 
-  constructor(packageJson: string){
+  constructor(packageJson: string, name: string|undefined = undefined){
     const p=JSON.parse(packageJson)
     this.raw=p
     
-    this.name=p.name
+    if(name != undefined){
+      const parts: string[]=p.name.split("/")
+      const new_name=parts.slice(0,-1).concat([name])
+      this.name=new_name.join("/")
+    }else{
+      this.name=p.name
+    }
     this.version=p.version
     this.dependencies=[]  // Resolve later, otherwise might go to dead loop
   }
   
   resolveDependencies(allPackages: Package[]){
-    console.log(`Resolving dependencies of ${this.name}`)
+    // console.log(`Resolving dependencies of ${this.name}`)
     for(const name of Object.keys(this.raw.dependencies ?? {})){
       const verreqs: string=this.raw.dependencies[name]
-      const reqs=new PackageRequirements(this.name,verreqs)
+      const reqs=new PackageRequirements(name,verreqs)
 
       const matches=reqs.match(allPackages)
       const dep=PackageRequirement.chooseLatest(matches)
+      if(dep==undefined){
+        console.error(`Failed to resolve dependency ${name}@${verreqs} for ${this.id}`)
+        continue
+      }
       this.dependencies.push(dep)
     }
   }
@@ -146,6 +159,11 @@ class PackageRequirement implements Requirement{
 
   constructor(name: string, ver: string){
     this.name=name
+
+    if(ver.startsWith("npm:")){
+      ver=ver.split("@")[1]
+    }
+
     if(ver.startsWith("~")){
       this.type=VersionRequirementType.Tilde
       this.ver=ver.slice(1)
@@ -161,13 +179,20 @@ class PackageRequirement implements Requirement{
     }else if(ver=="*"){
       this.type=VersionRequirementType.Any
       this.ver=""
+    }else if(ver.startsWith("<")){
+      this.type=VersionRequirementType.LessThan
+      this.ver=ver.slice(1)
+    }else if(ver.split(".").length==1){
+      // 1, accepts 1.x.x, same as ^1.0.0
+      this.type=VersionRequirementType.Caret
+      this.ver=ver+".0.0"
     }else{
       this.type=VersionRequirementType.Exact
       this.ver=ver
     }
   }
 
-  parseVersions(vera: string, verb: string): Number[][] {
+  static parseVersions(vera: string, verb: string): Number[][] {
     const aa=vera.split("-")[0]
     let ab=aa.split(".").map(x => Number(x))
     while(ab.length<3){ ab.push(0) }
@@ -200,15 +225,17 @@ class PackageRequirement implements Requirement{
         case VersionRequirementType.Exact:
           return p.version==this.ver
         case VersionRequirementType.Tilde: // 1.0.x
-          [thisv,pv] = this.parseVersions(this.ver,p.version)
-          return thisv[0]==pv[0] && thisv[1]==pv[1] && compareVersion(p.version,this.ver)>0
+          [thisv,pv] = PackageRequirement.parseVersions(this.ver,p.version)
+          return thisv[0]==pv[0] && thisv[1]==pv[1] && compareVersion(p.version,this.ver)>=0
         case VersionRequirementType.Caret: // 1.x.x
-          [thisv,pv] = this.parseVersions(this.ver,p.version)
-          return thisv[0]==pv[0] && compareVersion(p.version,this.ver)>0
+          [thisv,pv] = PackageRequirement.parseVersions(this.ver,p.version)
+          return thisv[0]==pv[0] && compareVersion(p.version,this.ver)>=0
         case VersionRequirementType.GreaterOrEqual:
-          return compareVersion(p.version,this.ver)>0
+          return compareVersion(p.version,this.ver)>=0
         case VersionRequirementType.GitUrl:
-          return p.version==this.ver
+          // It seems that girurl packages can also have a version number
+          // so always assume matched
+          return true;
         case VersionRequirementType.Any:
           return true
         case VersionRequirementType.LessThan:
@@ -219,7 +246,7 @@ class PackageRequirement implements Requirement{
     return version_range_matched
   }
 
-  static chooseLatest(packages: Package[]): Package{
+  static chooseLatest(packages: Package[]): Package | undefined{
     // Here we need Newer<0, so add `-` before compareVersion()
     const sorted=packages.slice().sort((a,b) => -compareVersion(a.version,b.version))
 
@@ -234,8 +261,10 @@ enum RequirementRelationship {
 class PackageRequirements implements Requirement{
   reqs: Requirement[] = []
   relationship: RequirementRelationship
+  name: string
 
   constructor(name: string,verreq: string){
+    this.name=name
     if(verreq.includes(" || ")){
       this.relationship=RequirementRelationship.Or
       const reqs=verreq.split(" || ")
@@ -292,19 +321,8 @@ class PackageRequirements implements Requirement{
 
 // Newer>0 Equal=0 Older<0
 function compareVersion(a: string, b: string): number {
-  // Remove tailing `-security` such things
-  const av=a.split("-")[0]
-  const bv=b.split("-")[0]
-
-  // Split 1.1.0 into [1,1,0]
-  const aver=av.split(".").map(s => Number(s))
-  const bver=bv.split(".").map(s => Number(s))
-
-  if(aver.length!=bver.length){
-    console.error(`Which son of bitch wrote this package? It has v${a} and v${b}, different number of "."s!`)
-    throw "SonOfBitchPackage"
-  }
-
+  const [aver,bver]=PackageRequirement.parseVersions(a,b)
+  
   for(let i=0;i<aver.length;i++){
     if(aver[i]>bver[i]){
       // a is newer than b, it comes first
@@ -325,5 +343,6 @@ if (import.meta.url === `file://${process.argv[1]}`){
   // Run tests
   const graph=await buildGraph("/home/ken/Projects/element-web")
 
-  console.log("Graph is",graph)
+  // console.log("Graph is",graph)
+  console.log("Done")
 }

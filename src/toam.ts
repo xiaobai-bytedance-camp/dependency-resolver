@@ -332,3 +332,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log("Graph is", graph);
 }
+
+
+function a(){
+  var a=1 
+  console.log('a: ', a);
+
+}

@@ -6,24 +6,31 @@ module.exports = {
     node: true,
     es2021: true,
   },
-  parser: "@typescript-eslint/parser", // 能看懂 TypeScript
-  parserOptions: {
-    project: ["./tsconfig.json"], // 告诉 eslint：tsconfig 在哪
-  },
-  plugins: ["@typescript-eslint"],
-  extends: [
-    "eslint:recommended",
-    "plugin:prettier/recommended"
-  ],
-  rules: {
-  },
+  // parser: "@typescript-eslint/parser",
+  // parserOptions: {
+  //   project: ["./tsconfig.json"],
+  // },
+  // plugins: ["@typescript-eslint"],
+  extends: ["eslint:recommended", "plugin:prettier/recommended"],
+  rules: {},
   overrides: [
     {
-      files: ['*.ts', '*.mts', '*.cts', '*.tsx'],
+      files: ["**/*.{ts,tsx}", "**/*.{js,jsx}"],
+      parser: "@typescript-eslint/parser",
+      parserOptions: {
+        project: ["./tsconfig.json"],
+      },
+      excludedFiles: [".eslintrc.js"],
+      extends: [
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking",
+      ],
+      plugins: ["@typescript-eslint"],
       rules: {
-        'no-undef': 'off',
-        "no-unused-vars": 'warn'
-
+        "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/no-unsafe-argument": "warn",
       },
     },
   ],

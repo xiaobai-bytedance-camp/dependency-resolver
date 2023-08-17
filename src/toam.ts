@@ -5,7 +5,7 @@ import path from "path";
 type adjacencyMatrix = { [key: string]: { [key: string]: boolean } };
 
 export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
-  let allPackages = await collectPackages(path.join(dir, "node_modules"));
+  const allPackages = await collectPackages(path.join(dir, "node_modules"));
 
   const mainRaw = await fs.readFile(path.join(dir, "package.json"), "utf8");
   const mainPackage = new Package(mainRaw);
@@ -17,7 +17,7 @@ export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
   }
 
   // Generate the graph (adjacencyMatrix)
-  let matrix: adjacencyMatrix = {};
+  const matrix: adjacencyMatrix = {};
   for (const i of allPackages) {
     matrix[i.id] = {};
     for (const j of allPackages) {
@@ -158,9 +158,9 @@ class PackageRequirement implements Requirement {
     }
   }
 
-  parseVersions(vera: string, verb: string): Number[][] {
+  parseVersions(vera: string, verb: string): number[][] {
     const aa = vera.split("-")[0];
-    let ab = aa.split(".").map((x) => Number(x));
+    const ab = aa.split(".").map((x) => Number(x));
     while (ab.length < 3) {
       ab.push(0);
     }
@@ -259,7 +259,7 @@ class PackageRequirements implements Requirement {
   }
 
   match(pool: Package[]): Package[] {
-    let result: Package[] = [];
+    const result: Package[] = [];
 
     const candidates = this.reqs.map((req) => req.match(pool));
     switch (this.relationship) {

@@ -15,7 +15,7 @@ module.exports = {
   rules: {},
   overrides: [
     {
-      files: ["**/*.{ts,tsx}", "**/*.{js,jsx}"],
+      files: ["**/*.{ts,tsx}"],
       parser: "@typescript-eslint/parser",
       parserOptions: {
         project: ["./tsconfig.json"],
@@ -32,6 +32,10 @@ module.exports = {
         "@typescript-eslint/no-unsafe-member-access": "warn",
         "@typescript-eslint/no-unsafe-argument": "warn",
       },
+    },
+    {
+      files: ["**/*.{js,jsx}"],
+      extends: ["eslint:recommended", "plugin:prettier/recommended"],
     },
   ],
 };

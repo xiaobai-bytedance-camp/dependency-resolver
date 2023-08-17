@@ -41,7 +41,7 @@ export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Not being imported, but being run directly
   // Run tests
-  // const graph = await buildGraph("/home/ken/Projects/element-web");
+  await buildGraph("/home/ken/Projects/element-web");
 
   // console.log("Graph is",graph)
   console.log("Done");

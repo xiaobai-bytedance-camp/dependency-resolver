@@ -2,7 +2,9 @@
   "name": "dependency-resolver",
   "version": "1.0.0",
   "description": "Resolve packages in package.json and draw a graph of them",
-  "main": "index.js",
+  "main": "index.ts",
+  "type": "module",
+  "bin": "src/index.ts",
   "scripts": {
     "build": "npx tsc",
     "prepare": "husky install",
@@ -12,7 +14,10 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^11.0.0",
-    "node-fetch": "^3.3.2"
+    "fs": "^0.0.1-security",
+    "node-fetch": "^3.3.2",
+    "path": "^0.12.7",
+    "ts-node": "^10.9.1"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",

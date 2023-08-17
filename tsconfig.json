@@ -2,11 +2,10 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
+    "target": "ESNext",
     "strict": true,
-    "target": "es6",
-    "module": "CommonJS",
-    "sourceMap": true,
+    "module": "ESNext",
     "esModuleInterop": true,
-    "moduleResolution": "node"
+    "moduleResolution": "Node"
   }
 }

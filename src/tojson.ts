@@ -6,7 +6,9 @@ export async function buildJson(directory: string): Promise<string> {
 
   const dependencies: { [key: string]: string[] } = {};
   for (const from of Object.keys(graph)) {
-    dependencies[from] = Object.keys(graph[from]);
+    dependencies[from] = Object.keys(graph[from]).filter(
+      (key) => graph[from][key] == true,
+    );
   }
 
   return JSON.stringify(dependencies);

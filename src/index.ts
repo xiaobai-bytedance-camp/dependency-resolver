@@ -1,7 +1,9 @@
 #!/usr/bin/env -S node --loader ts-node/esm --experimental-specifier-resolution=node
 import { Command } from "commander";
 import { buildJson } from "./tojson";
-import { buildGraph } from "./toam";
+import { buildGraph, getRootPackageName } from "./toam";
+import { drawGraph } from "./graph";
+import open from "open";
 import * as fs from "fs/promises";
 
 const program = new Command();
@@ -27,9 +29,17 @@ program
       const result = await buildJson(path);
       await fs.writeFile(opt.json, result);
     } else {
-      await buildGraph(path);
-      // TODO: Draw the graph in browser
-      console.error("Not implemented yet");
+      const graph = await buildGraph(path);
+      const rootName = await getRootPackageName(path);
+
+      const svg = drawGraph(graph, rootName);
+
+      const filename = "./.tmp_output.svg";
+      await fs.writeFile(filename, svg);
+      await open(filename);
+
+      // The browser will store it in memory...
+      // await fs.rm(filename)
     }
   });
 

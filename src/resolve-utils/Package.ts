@@ -46,10 +46,16 @@ export class Package {
   version: string; // An exact versoin
   dependencies: Package[];
   raw: any;
+  root: boolean;
 
-  constructor(packageJson: string, name: string | undefined = undefined) {
+  constructor(
+    packageJson: string,
+    name: string | undefined = undefined,
+    root = false,
+  ) {
     const p = JSON.parse(packageJson);
     this.raw = p;
+    this.root = root;
 
     if (name != undefined) {
       const parts: string[] = (p.name as string).split("/");

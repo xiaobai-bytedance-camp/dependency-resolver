@@ -3,13 +3,13 @@ import * as fs from "fs/promises";
 import path from "path";
 import { collectPackages, Package } from "./resolve-utils/Package";
 
-type adjacencyMatrix = { [key: string]: { [key: string]: boolean } };
+export type adjacencyMatrix = Record<string, Record<string, boolean>>;
 
 export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
   const allPackages = await collectPackages(path.join(dir, "node_modules"));
 
   const mainRaw = await fs.readFile(path.join(dir, "package.json"), "utf8");
-  const mainPackage = new Package(mainRaw);
+  const mainPackage = new Package(mainRaw, undefined, true);
   allPackages.push(mainPackage);
 
   // Resolve dependencies
@@ -36,6 +36,13 @@ export async function buildGraph(dir: string): Promise<adjacencyMatrix> {
   }
 
   return matrix;
+}
+
+export async function getRootPackageName(dir: string): Promise<string> {
+  const mainRaw = await fs.readFile(path.join(dir, "package.json"), "utf8");
+  const mainPackage = new Package(mainRaw, undefined, true);
+
+  return mainPackage.id;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

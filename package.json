@@ -14,8 +14,10 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^11.0.0",
+    "echarts": "^5.4.3",
     "fs": "^0.0.1-security",
     "node-fetch": "^3.3.2",
+    "open": "^9.1.0",
     "path": "^0.12.7",
     "ts-node": "^10.9.1"
   },

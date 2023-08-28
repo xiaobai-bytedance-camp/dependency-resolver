@@ -35,7 +35,6 @@ export function drawGraph(
     width: root.size![0],
     height: root.size![1],
   });
-  console.log(root.size);
 
   const links = [];
   for (const from of Object.keys(graphMatrix)) {

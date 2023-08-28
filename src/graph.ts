@@ -4,20 +4,13 @@ import { adjacencyMatrix } from "./toam";
 import { buildGraph, getRootPackageName } from "./toam";
 
 const NODE_SIZE = 50;
-const NODE_HORIZONTAL_MARGIN = 500;
-const NODE_VERTICLE_MARGIN = 500;
+const NODE_HORIZONTAL_MARGIN = 400;
+const NODE_VERTICLE_MARGIN = 1000;
 
 export function drawGraph(
   graphMatrix: adjacencyMatrix,
   rootName: string,
 ): string {
-  const chart = echarts.init(null, null, {
-    renderer: "svg",
-    ssr: true,
-    width: 3840,
-    height: 2160,
-  });
-
   const allNames = Object.keys(graphMatrix);
   const allNodes: Record<string, Node> = {};
   for (const name of allNames) {
@@ -35,6 +28,14 @@ export function drawGraph(
   root.calcRelaPos();
   root.pos = [0, 0];
   root.calcPos();
+
+  const chart = echarts.init(null, null, {
+    renderer: "svg",
+    ssr: true,
+    width: root.size![0],
+    height: root.size![1],
+  });
+  console.log(root.size);
 
   const links = [];
   for (const from of Object.keys(graphMatrix)) {
@@ -63,7 +64,6 @@ export function drawGraph(
         type: "graph",
         layout: "none",
         symbolSize: NODE_SIZE,
-        roam: true,
         label: {
           show: true,
         },
